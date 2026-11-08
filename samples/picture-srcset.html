@@ -1,0 +1,5 @@
+<!doctype html><html><head><meta charset="utf-8"><title>srcset and picture</title></head><body>
+<h2>srcset</h2><img id="srcsetImg" src="img/one.png" srcset="img/one.png 1x, img/two.png 2x" alt="srcset">
+<h2>sizes</h2><img id="sizesImg" srcset="img/one.png 120w, img/two.png 240w" sizes="(max-width: 600px) 120px, 240px" src="img/one.png" alt="sizes">
+<h2>picture</h2><picture><source id="wideSource" media="(min-width: 500px)" srcset="img/wide.svg"><img id="pictureImg" src="img/one.png" alt="picture"></picture>
+</body></html>

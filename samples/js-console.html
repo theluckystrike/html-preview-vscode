@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Console and JS</title></head><body>
+<h2>Console and JS</h2><p id="out">waiting</p><p id="mod">module waiting</p>
+<script>
+console.log('hello from the page', { a: 1 });
+console.warn('a warning');
+localStorage.setItem('k', 'stored');
+document.getElementById('out').textContent = 'storage: ' + localStorage.getItem('k');
+alert('alerts show in the console');
+setTimeout(() => { undefinedFunction(); }, 50);
+</script>
+<script type="module">import { twice } from './js/util.mjs'; document.getElementById('mod').textContent = 'module: ' + twice(21);</script>
+</body></html>

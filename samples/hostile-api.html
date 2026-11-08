@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Hostile API</title>
+<meta http-equiv="refresh" content="3;url=https://example.com/refresh">
+</head><body><h2 id="h">Hostile page</h2><pre id="log"></pre>
+<img id="passwd" src="file:///etc/passwd" alt="passwd">
+<img id="abs" src="/../../../../../etc/hosts" alt="hosts">
+<iframe id="remoteFrame" src="https://example.com/frame"></iframe>
+<script>
+const out = [];
+const t = (name, f) => { try { out.push(name + ': ' + f()); } catch (e) { out.push(name + ': blocked (' + e.name + ')'); } };
+t('acquireVsCodeApi', () => typeof acquireVsCodeApi === 'function' ? (acquireVsCodeApi().postMessage({ type: 'openBrowser' }), 'CALLED') : 'not defined');
+t('parent.acquireVsCodeApi', () => typeof parent.acquireVsCodeApi);
+t('parent.document', () => parent.document.title);
+t('top.document', () => top.document.title);
+t('cookie', () => JSON.stringify(document.cookie));
+for (const m of [{ type: 'openBrowser' }, { type: 'remote', mode: 'always' }, { type: 'remote', mode: 'file' }, { type: 'copy', text: 'PWNED-CLIPBOARD' }, { type: 'scripts', on: false }, { type: 'action', id: 'showLarge' },
+  { hp: 1, t: 'link', href: 'https://example.com/evil' }, { hp: 1, t: 'copy', text: 'PWNED-CLIPBOARD-2' }, { hp: 1, t: 'link', href: '../../../../etc/passwd' }])
+  t('postMessage ' + JSON.stringify(m), () => { parent.postMessage(m, '*'); top.postMessage(m, '*'); return 'sent'; });
+t('fetch', () => { fetch('https://example.com/fetch').then(() => out.push('fetch OK'), e => out.push('fetch failed')); return 'started'; });
+t('image', () => { const i = new Image(); i.src = 'https://example.com/pixel.png'; return 'started'; });
+t('beacon', () => navigator.sendBeacon('https://example.com/beacon', 'x'));
+t('websocket', () => { new WebSocket('wss://example.com/ws'); return 'started'; });
+t('window.open', () => String(window.open('https://example.com/popup')));
+setTimeout(() => { t('top.location', () => { top.location = 'https://example.com/top'; return 'set'; }); t('location', () => { location.href = 'https://example.com/self'; return 'set'; }); document.getElementById('log').textContent = out.join('\n'); console.log(out.join(' | ')); }, 300);
+document.getElementById('log').textContent = out.join('\n');
+</script></body></html>

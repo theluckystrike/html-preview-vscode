@@ -1,0 +1,3 @@
+:root { --brand: #e44d26; --ink: #1d2733; }
+h1 { color: rgb(228, 77, 38); letter-spacing: .5px; }
+body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }

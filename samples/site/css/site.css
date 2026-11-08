@@ -1,0 +1,11 @@
+@import "base.css";
+@import url("print.css") print;
+body { margin: 0; background: #fbfaf7 url("../img/paper dots.svg") repeat; }
+header { background: var(--ink); color: #fff; padding: 18px 28px; }
+header h1 { margin: 0; font-size: 26px; }
+nav a { color: #ffd2c4; margin-right: 14px; }
+main { max-width: 860px; margin: 0 auto; padding: 18px 28px 60px; }
+.card { background: #fff; border: 1px solid #e6e1d8; border-radius: 10px; padding: 16px 20px; margin: 14px 0; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.hero { width: 100%; max-width: 480px; display: block; border-radius: 12px; }
+#counter { font-weight: 700; color: var(--brand); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }

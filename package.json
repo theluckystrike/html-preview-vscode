@@ -1,0 +1,252 @@
+{
+  "name": "zovo-html-preview",
+  "displayName": "HTML Preview & HTML Viewer (Live, CSS and Images, Offline)",
+  "description": "Free HTML preview and HTML viewer beside your editor. Linked CSS, JS and images load, it updates as you type, and nothing is sent anywhere. No sign-in, no server, works offline.",
+  "version": "0.1.0",
+  "publisher": "zovo",
+  "license": "MIT",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1B2733",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "html preview",
+    "html viewer",
+    "live preview",
+    "preview html",
+    "html",
+    "css",
+    "offline",
+    "side by side",
+    "responsive",
+    "mobile view",
+    "web preview",
+    "htm",
+    "no server",
+    "dark mode"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onWebviewPanel:htmlPreview.preview"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode the preview does not run the page's JavaScript."
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "htmlPreview.showPreviewToSide",
+        "title": "Open HTML Preview to the Side",
+        "category": "HTML Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "htmlPreview.showPreview",
+        "title": "Open HTML Preview",
+        "category": "HTML Preview"
+      },
+      {
+        "command": "htmlPreview.openWalkthrough",
+        "title": "Get Started",
+        "category": "HTML Preview"
+      },
+      {
+        "command": "htmlPreview.supportDeveloper",
+        "title": "Support the developer",
+        "category": "HTML Preview"
+      },
+      {
+        "command": "htmlPreview.moreViewers",
+        "title": "More free viewers",
+        "category": "HTML Preview"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "htmlPreview.showPreviewToSide",
+        "key": "ctrl+k v",
+        "mac": "cmd+k v",
+        "when": "editorTextFocus && editorLangId == html"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "htmlPreview.showPreviewToSide",
+          "when": "editorLangId == html || resourceExtname =~ /^\\.(html?|xhtml|shtml)$/i",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "htmlPreview.showPreviewToSide",
+          "when": "resourceExtname =~ /^\\.(html?|xhtml|shtml)$/i",
+          "group": "navigation@9"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "htmlPreview.showPreviewToSide",
+          "when": "editorLangId == html",
+          "group": "navigation@9"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "htmlPreview.showPreviewToSide",
+          "when": "editorLangId == html || resourceExtname =~ /^\\.(html?|xhtml|shtml)$/i"
+        },
+        {
+          "command": "htmlPreview.showPreview",
+          "when": "editorLangId == html || resourceExtname =~ /^\\.(html?|xhtml|shtml)$/i"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "HTML Preview",
+      "properties": {
+        "htmlPreview.followActiveEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "When you switch to another HTML file, the open preview shows that file."
+        },
+        "htmlPreview.updateDelayMs": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "How long to wait after you stop typing before the preview updates. Saved changes to linked CSS, JS and images show at once."
+        },
+        "htmlPreview.runScripts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the page's JavaScript. It runs in a sandboxed frame that cannot reach VS Code, your files or the network. Turn it off to see the page as it looks without scripts."
+        },
+        "htmlPreview.loadRemoteResources": {
+          "type": "boolean",
+          "default": false,
+          "description": "Load CSS, fonts, scripts and images from the web (CDN links) in every page. When off, nothing is loaded from the web, and a bar offers \"Load for this file\"."
+        },
+        "htmlPreview.pageBackground": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "enumDescriptions": [
+            "Follow the VS Code theme, but only for pages that set no background of their own.",
+            "White, as a web browser shows it.",
+            "Dark, for pages that set no background of their own."
+          ],
+          "default": "auto",
+          "description": "Background and text color for pages that do not set their own. Pages with their own background always show it. You can change it from the toolbar."
+        },
+        "htmlPreview.scrollSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Scroll the preview with the editor. You can turn it on and off from the toolbar."
+        },
+        "htmlPreview.maxFileMB": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 200,
+          "description": "HTML files larger than this are not read until you click \"Show anyway\" in the preview. Files over 32 MB are never shown."
+        },
+        "htmlPreview.maxResourceMB": {
+          "type": "number",
+          "default": 25,
+          "minimum": 1,
+          "maximum": 500,
+          "description": "Linked files (images, video, CSS, JS) larger than this are not put into the preview. The console panel names them."
+        },
+        "htmlPreview.stuckScriptSeconds": {
+          "type": "number",
+          "default": 5,
+          "minimum": 2,
+          "maximum": 120,
+          "description": "If the page's scripts keep the preview busy for this long (an endless loop, for example), the preview stops them and shows the page without scripts."
+        },
+        "htmlPreview.askForRating": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for a Marketplace rating after you have used HTML Preview on a few days. You can answer \"Later\" or \"No thanks\". Nothing is sent anywhere."
+        },
+        "htmlPreview.showSupportLinks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the small Sponsor and More free viewers links at the bottom of the preview. Nothing is sent anywhere."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "htmlPreview.start",
+        "title": "Get started with HTML Preview",
+        "description": "Preview HTML beside your code, with its CSS, scripts and images. No server, no account, no network.",
+        "steps": [
+          {
+            "id": "open",
+            "title": "Open the preview",
+            "description": "Open an .html file and click the preview icon in the editor title. Cmd+K V (Ctrl+K V) does the same. Your .html file stays a normal text editor.\n[Find an .html file](command:workbench.action.quickOpen?%5B%22.html%22%5D)",
+            "media": {
+              "markdown": "walkthrough/open.md"
+            },
+            "completionEvents": [
+              "onCommand:htmlPreview.showPreviewToSide"
+            ]
+          },
+          {
+            "id": "devices",
+            "title": "Phone, tablet and desktop widths",
+            "description": "Pick a width (320 to 1440 px, or your own) and a zoom in the toolbar to check a responsive layout.",
+            "media": {
+              "markdown": "walkthrough/devices.md"
+            }
+          },
+          {
+            "id": "remote",
+            "title": "Web resources and the console",
+            "description": "Nothing loads from the web until you click \"Load for this file\". The console panel shows console.log output and script errors.\n[Open settings](command:workbench.action.openSettings?%5B%22htmlPreview%22%5D)",
+            "media": {
+              "markdown": "walkthrough/remote.md"
+            },
+            "completionEvents": [
+              "onCommand:workbench.action.openSettings"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "samples": "node scripts/make-samples.mjs samples",
+    "package": "npx -y @vscode/vsce package --no-dependencies -o dist/"
+  },
+  "homepage": "https://github.com/theluckystrike/html-preview-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/theluckystrike/html-preview-vscode/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theluckystrike/html-preview-vscode"
+  },
+  "sponsor": {
+    "url": "https://github.com/sponsors/theluckystrike"
+  }
+}
