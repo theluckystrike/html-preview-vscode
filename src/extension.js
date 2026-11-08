@@ -174,6 +174,7 @@ class Preview {
       try { text = new TextDecoder('utf-8').decode(await vscode.workspace.fs.readFile(uri)); } catch (e) { return this.fail(uri, `HTML Preview could not read ${name}: ${e && e.message || e}`); }
       if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
     }
+    this.lastEmpty = !text.trim(); // an empty page is not a success for the rating rule (VER11)
     const roots = this.roots(uri);
     const wf = vscode.workspace.getWorkspaceFolder(uri);
     const remote = this.remoteAllowed(uri);
@@ -290,7 +291,7 @@ class Preview {
       case 'rendered': {
         this.lastAlive = Date.now(); this.renderedSeq = m.seq | 0;
         const k = this.uri && this.uri.toString();
-        if (k && !this.counted.has(k)) { this.counted.add(k); rating.success(); }
+        if (k && !this.counted.has(k) && !this.lastEmpty) { this.counted.add(k); rating.success(); }
         break;
       }
       case 'prefs': await this.ext.context.workspaceState.update(PREFS_KEY, cleanPrefs(m.prefs, settings())); this.syncScroll(); break;

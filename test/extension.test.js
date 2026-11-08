@@ -245,3 +245,9 @@ test('a page script cannot reload the preview more than once a second (VER11)', 
     assert.ok(n1 - n0 <= 1, `renders after 20 reloads: ${n1 - n0}`);
   } finally { p.dispose(); }
 });
+
+test('rating: an empty page is not counted as a success (VER11)', () => {
+  const src = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'extension.js'), 'utf8');
+  assert.match(src, /this\.lastEmpty = !text\.trim\(\);/);
+  assert.match(src, /!this\.counted\.has\(k\) && !this\.lastEmpty\) \{ this\.counted\.add\(k\); rating\.success\(\); \}/);
+});
