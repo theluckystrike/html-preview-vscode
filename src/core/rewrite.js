@@ -378,7 +378,9 @@ async function rewriteHtml(text, ctx, state) {
   async function css(text, from, depth, seen, attr) {
     const out = [];
     const hoist = [];
-    const re = /\/\*[\s\S]*?\*\/|@import\s+(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)|"([^"]*)"|'([^']*)')([^;]*);?|url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s'"]*))\s*\)/gi;
+    // (?!\s) after each space run keeps this linear: no other way to split the spaces is tried. An unclosed
+    // comment runs to the end, as in CSS.
+    const re = /\/\*[\s\S]*?(?:\*\/|$)|@import\s+(?!\s)(?:url\(\s*(?!\s)(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)|"([^"]*)"|'([^']*)')([^;]*);?|url\(\s*(?!\s)(?:"([^"]*)"|'([^']*)'|([^)\s'"]*))\s*\)/gi;
     let last = 0, m;
     const jobs = [];
     while ((m = re.exec(text))) {
@@ -421,7 +423,8 @@ async function rewriteHtml(text, ctx, state) {
   /** Static relative imports in an ES module become data: URLs (depth-limited, loops left as they are). */
   async function moduleJs(text, from, depth, seen) {
     if (depth >= st.opt.maxDepth) return text;
-    const re = /(\bimport\s*(?:[\w*{}\s,$]+?\s*from\s*)?|\bexport\s*(?:\*|\{[^}]*\})\s*from\s*|\bimport\s*\(\s*)(["'])([^"'\n]+)\2/g;
+    // Linear on hostile text: the space run after "import" is taken whole ((?!\s)), and the import list is bounded.
+    const re = /(\bimport\s*(?!\s)(?:[\w*{},$][\w*{}\s,$]{0,1000}?\bfrom\s*)?|\bexport\s*(?!\s)(?:\*|\{[^}]{0,4000}\})\s*from\s*|\bimport\s*\(\s*)(["'])([^"'\n]+)\2/g;
     const out = []; let last = 0, m; const jobs = [];
     while ((m = re.exec(text))) {
       const spec = m[3];
@@ -471,7 +474,7 @@ function splitSrcset(v) {
   while ((m = re.exec(v)) && m[0]) {
     let url = m[1], rest = m[2];
     if (url.endsWith(',')) { url = url.slice(0, -1); }
-    out.push({ url, rest: rest.replace(/\s+$/, '') ? ' ' + rest.trim() : '' });
+    out.push({ url, rest: rest.trim() ? ' ' + rest.trim() : '' });
     if (re.lastIndex >= v.length) break;
   }
   return out;

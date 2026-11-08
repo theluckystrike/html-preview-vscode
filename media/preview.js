@@ -225,7 +225,10 @@
         if (r === cur && typeof d.text === 'string' && d.text && userActedOn(r)) post({ type: 'copy', text: d.text });
         else refused++;
         break;
-      case 'reload': post({ type: 'reload' }); break;
+      case 'reload':
+        // F5 inside the page: only a real key press, never a script (a script could reload the page forever)
+        if (r === cur && userActedOn(r)) post({ type: 'reload' }); else refused++;
+        break;
       case 'key':
         try { window.dispatchEvent(new KeyboardEvent('keydown', { key: String(d.key), code: String(d.code), ctrlKey: !!d.ctrlKey, metaKey: !!d.metaKey, shiftKey: !!d.shiftKey, altKey: !!d.altKey, bubbles: true, cancelable: true })); } catch {}
         break;

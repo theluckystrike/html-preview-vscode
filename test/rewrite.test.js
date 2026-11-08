@@ -623,3 +623,19 @@ test('resolveLink: "java\\tscript:" (tab inside the scheme) is not treated as a 
   const r = resolveLink('java\tscript:alert(1)', 'file:///site/index.html', ROOT);
   assert.notEqual(r.kind, 'local');
 });
+
+test('hostile text stays linear: module imports, CSS url(, unclosed comments, srcset spaces (VER11)', async () => {
+  const big = 200000;
+  for (const [name, html] of [
+    ['import + spaces', '<script type="module">import' + ' '.repeat(big) + '</script>'],
+    ['export { unclosed', '<script type="module">' + 'export {a '.repeat(big / 10) + '</script>'],
+    ['css url( + spaces', '<style>url(' + ' '.repeat(big) + '</style>'],
+    ['css @import + spaces', '<style>@import' + ' '.repeat(big) + '</style>'],
+    ['css unclosed comments', '<style>' + '/*a'.repeat(big / 3) + '</style>'],
+    ['srcset spaces', '<img srcset="a' + ' '.repeat(big) + 'b">'],
+  ]) {
+    const t0 = Date.now();
+    await run(html);
+    assert.ok(Date.now() - t0 < 1500, `${name}: ${Date.now() - t0} ms`);
+  }
+});

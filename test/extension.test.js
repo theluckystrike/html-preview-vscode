@@ -209,3 +209,39 @@ test('runScripts=false: the render has no page <script> and says scripts are off
     assert.doesNotMatch(page, /<script|onclick|javascript:/i);
   } finally { p.dispose(); }
 });
+
+test('a page outside the workspace reads only its own folder: not the folder above, never .ssh (VER11)', async () => {
+  const files = {
+    '/h/u/Downloads/x.html': '<html><body><img id=a src="../.ssh/id_rsa"><img id=b src="../notes.png"><img id=c src="ok.png"><img id=d src=".ssh/id_rsa"></body></html>',
+    '/h/u/.ssh/id_rsa': 'PRIVATE KEY', '/h/u/notes.png': 'UP', '/h/u/Downloads/ok.png': 'OK', '/h/u/Downloads/.ssh/id_rsa': 'KEY2',
+  };
+  const env = makeVscode({ files });
+  const ext = load(env);
+  ext.activate(env.ctx);
+  await env.commands.get('htmlPreview.showPreviewToSide')(env.Uri.file('/h/u/Downloads/x.html'));
+  const p = env.S.panels[0];
+  try {
+    p.send({ type: 'ready' }); await tick(60);
+    const r = p.last('render');
+    assert.ok(r, 'render posted: ' + JSON.stringify(env.S.err));
+    for (const secret of ['PRIVATE KEY', 'UP', 'KEY2']) assert.ok(!r.html.includes(Buffer.from(secret).toString('base64')), secret + ' must not be read');
+    assert.ok(r.html.includes(Buffer.from('OK').toString('base64')), 'a file in the page folder is read');
+  } finally { p.dispose(); }
+});
+
+test('a page script cannot reload the preview more than once a second (VER11)', async () => {
+  const files = { '/w/a.html': '<p>x</p>' };
+  const env = makeVscode({ files });
+  const ext = load(env);
+  ext.activate(env.ctx);
+  await env.commands.get('htmlPreview.showPreviewToSide')(env.Uri.file('/w/a.html'));
+  const p = env.S.panels[0];
+  try {
+    p.send({ type: 'ready' }); await tick(60);
+    const n0 = p.posted.filter(m => m.type === 'render').length;
+    for (let i = 0; i < 20; i++) p.send({ type: 'reload' });
+    await tick(80);
+    const n1 = p.posted.filter(m => m.type === 'render').length;
+    assert.ok(n1 - n0 <= 1, `renders after 20 reloads: ${n1 - n0}`);
+  } finally { p.dispose(); }
+});

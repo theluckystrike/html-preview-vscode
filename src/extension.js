@@ -5,6 +5,8 @@
 // nothing is loaded from the web unless the user clicks "Load for this file". The .html editor is never replaced.
 const vscode = require('vscode');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const { rewriteHtml, resolveLink } = require('./core/rewrite');
 const { buildHtml, bootstrapTag } = require('./html');
 const { createRatingPrompt } = require('./rate');
@@ -56,6 +58,30 @@ function cleanPrefs(p, s) {
 /** Folder URL string ending with '/'. */
 const dirUrl = u => { const s = u.toString(); return s.slice(0, s.lastIndexOf('/') + 1); };
 const withSlash = s => (s.endsWith('/') ? s : s + '/');
+const decodeURIComponentSafe = s => { try { return decodeURIComponent(s); } catch { return s; } };
+/** Folders with keys and passwords are never read, even inside a workspace (someone may open their home folder). */
+const SECRET_RE = /\/(\.ssh|\.gnupg|\.aws|\.azure|\.kube|\.docker|\.password-store|\.config\/gcloud|Library\/Keychains)(\/|$)|\/(\.netrc|\.git-credentials|\.npmrc|\.pypirc|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?)$/i;
+/** The home folder, /, /Users, /home or a drive root is too wide to be a page's read root. */
+function tooWideRoot(scheme, dirPath) {
+  if (scheme !== 'file') return false;
+  const p = withSlash(String(dirPath).replace(/\\/g, '/')).toLowerCase();
+  const home = withSlash(os.homedir().replace(/\\/g, '/')).toLowerCase();
+  return p === home || /^([a-z]:)?\/$/.test(p) || /^\/(users|home|root)\/$/.test(p) || /^[a-z]:\/users\/$/.test(p);
+}
+/** True when the real path (links resolved) of file is inside the real path of one of the root URLs. */
+async function insideReal(file, roots) {
+  let real;
+  try { real = await fs.promises.realpath(file); } catch { return true; } // a missing file is reported as not found later
+  if (SECRET_RE.test(real.replace(/\\/g, '/'))) return false;
+  for (const r of roots) {
+    let ru; try { ru = vscode.Uri.parse(r); } catch { continue; }
+    if (ru.scheme !== 'file') continue;
+    let rr; try { rr = await fs.promises.realpath(ru.fsPath); } catch { continue; }
+    const rel = path.relative(rr, real);
+    if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) return true;
+  }
+  return false;
+}
 
 class Preview {
   constructor(ext, panel) {
@@ -114,19 +140,21 @@ class Preview {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.render().catch(err => {
       log.error(`render failed: ${err && err.stack || err}`);
+      this.failed();
       vscode.window.showErrorMessage('HTML Preview: ' + (err && err.message || err));
     }), delay);
   }
 
   doc(uri) { const k = uri.toString(); return vscode.workspace.textDocuments.find(d => d.uri.toString() === k); }
 
-  /** Folders the page may read from: the workspace folders, the page's folder and the folder above it. */
+  /** Folders the page may read from: the workspace folders. A page outside the workspace may read its own folder,
+   *  unless that folder is the home folder or a file-system root (a page in ~/Downloads must not reach ~/.ssh). */
   roots(uri) {
     const out = (vscode.workspace.workspaceFolders || []).map(f => withSlash(f.uri.toString()));
-    const d = dirUrl(uri);
-    out.push(d);
-    const up = d.slice(0, d.slice(0, -1).lastIndexOf('/') + 1);
-    if (up.length > uri.scheme.length + 3 && /\/[^/]+\/$/.test(up)) out.push(up);
+    if (!vscode.workspace.getWorkspaceFolder(uri)) {
+      const d = dirUrl(uri);
+      if (!tooWideRoot(uri.scheme, path.dirname(uri.fsPath))) out.push(d);
+    }
     return out;
   }
 
@@ -173,8 +201,11 @@ class Preview {
 
   /** Read a linked file. Open editors win (unsaved CSS shows at once); files outside the roots are refused. */
   async read(url, roots, s) {
-    if (!roots.some(r => url.startsWith(r))) { const e = new Error('outside'); e.code = 'OUTSIDE'; throw e; }
+    const outside = () => { const e = new Error('outside'); e.code = 'OUTSIDE'; return e; };
+    if (!roots.some(r => url.startsWith(r)) || SECRET_RE.test(decodeURIComponentSafe(url))) throw outside();
     const uri = vscode.Uri.parse(url);
+    // A symlink inside the workspace must not lead outside it (or into a secret folder).
+    if (uri.scheme === 'file' && !(await insideReal(uri.fsPath, roots))) throw outside();
     const d = this.doc(uri);
     if (d) return Buffer.from(d.getText(), 'utf8');
     const hit = this.cache.get(url);
@@ -208,6 +239,7 @@ class Preview {
   }
 
   tooLarge(uri, size, s) {
+    this.failed(uri);
     const mb = (size / 1048576).toFixed(1);
     const canForce = size <= HARD_MAX_MB * 1048576;
     this.post({
@@ -219,7 +251,15 @@ class Preview {
 
   fail(uri, msg) {
     this.post({ type: 'message', name: path.posix.basename(uri.path), heading: 'Cannot show this file', text: msg });
-    if (!this.counted.has(uri.toString())) { this.counted.add(uri.toString()); rating.failure(); }
+    this.failed(uri);
+  }
+
+  /** Record a failed or cut-short open for the rating rule (once per file per preview): no rating ask after it. */
+  failed(uri = this.uri) {
+    const k = uri && uri.toString(); if (!k) return;
+    this.counted.add(k);
+    if (!this.failedKeys) this.failedKeys = new Set();
+    if (!this.failedKeys.has(k)) { this.failedKeys.add(k); rating.failure(); }
   }
 
   checkAlive() {
@@ -228,6 +268,7 @@ class Preview {
     if (Date.now() - this.lastAlive > ms && this.uri) {
       const key = this.uri.toString();
       this.scriptsOff.add(key);
+      this.failed();
       this.notice = { text: `The page's scripts froze the preview for ${Math.round(ms / 1000)} s, so HTML Preview restarted it without scripts.`, action: { id: 'scriptsOn', label: 'Run scripts again' } };
       this.ext.replacePanel(this);
     }
@@ -253,7 +294,11 @@ class Preview {
         break;
       }
       case 'prefs': await this.ext.context.workspaceState.update(PREFS_KEY, cleanPrefs(m.prefs, settings())); this.syncScroll(); break;
-      case 'reload': this.cache.clear(); this.notice = null; this.schedule(0); break;
+      case 'reload': {
+        // at most one reload a second: a page script must not keep the preview busy
+        const now = Date.now(); if (now - (this.lastReload || 0) < 1000) return; this.lastReload = now;
+        this.cache.clear(); this.notice = null; this.schedule(0); break;
+      }
       case 'nav': {
         const to = this.at + (m.dir < 0 ? -1 : 1);
         if (to < 0 || to >= this.history.length) return;
@@ -271,6 +316,7 @@ class Preview {
         if ((m.seq | 0) !== this.seq) return; // an older frame
         const k = this.uri && this.uri.toString(); if (!k) return;
         this.scriptsOff.add(k);
+        this.failed();
         this.notice = { text: `The page's scripts did not answer for ${settings().stuckSeconds} s, so they were stopped. The page is shown without scripts.`, action: { id: 'scriptsOn', label: 'Run scripts again' } };
         this.schedule(0);
         break;
@@ -279,6 +325,7 @@ class Preview {
         if ((m.seq | 0) !== this.seq) return; // an older frame
         const k = this.uri && this.uri.toString(); if (!k) return;
         this.scriptsOff.add(k);
+        this.failed();
         this.notice = { text: 'The page\'s script tried to open another address, so the preview shows this file without scripts.', action: { id: 'scriptsOn', label: 'Run scripts again' } };
         this.schedule(0);
         break;
